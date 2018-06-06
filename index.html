@@ -32,12 +32,15 @@
                     var player = response['players'][key];
 
                     if (player.name == $('#name').val()) {
+                        // the server doesn't tell us our uuid yet, so we need
+                        // to find it by looping through the players
                         uuid = player.uuid;
                     }
                 }
 
                 for (var event of response.events) {
-                    if (event.error) {
+                    if (event.error && event.uuid === uuid) {
+                        // show errors from the current user
                         alert(event.error);
                     }
                 }
@@ -47,35 +50,39 @@
                     return;
                 }
 
+                // since we could be in a stage that we've completed locally,
+                // we need to check to see which players we're actually waiting on
+
                 var waitingPlayers = response['stage']['players'];
+                var waitingOnSelf = waitingPlayers.indexOf(uuid) !== -1;
+
+                $('body > div').hide();
 
                 switch (response['stage']['stage']) {
                     case 'waiting_for_ready': {
-                        $('body > div').hide();
                         $('#ready').show();
                         renderCards(response);
+
                         break;
                     }
 
                     case 'waiting_for_bets': {
-                        $('body > div').hide();
                         $('#bet').show();
 
-                        if (waitingPlayers.indexOf(uuid) !== -1) {
-                            $('#mybet').show();
+                        if (waitingOnSelf) {
+                            $('#my-bet').show();
                         }
                         else {
-                            $('#mybet').hide();
+                            $('#my-bet').hide();
                         }
 
                         break;
                     }
 
                     case 'taking_cards': {
-                        $('body > div').hide();
                         $('#hit-or-stay').show();
 
-                        if (waitingPlayers.indexOf(uuid) !== -1) {
+                        if (waitingOnSelf) {
                             $('#my-hit-or-stay').show();
                         }
                         else {
@@ -83,6 +90,7 @@
                         }
 
                         renderCards(response);
+
                         break;
                     }
                 }
@@ -225,7 +233,7 @@
 
     <div id="bet" style="display:none">
         <h3>Taking Bets</h3>
-        <p id="mybet">
+        <p id="my-bet">
             Enter your bet:
             <input type="text" id="amount">
             <button onclick='bet()'>Place</button>
