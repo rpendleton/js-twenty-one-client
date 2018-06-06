@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>21</title>
+    <script src="https://code.jquery.com/jquery-3.3.1.slim.min.js" integrity="sha256-3edrmyuQ0w65f8gfBsqowzjJe2iM6n0nKciPUp8y+7E=" crossorigin="anonymous"></script>
+    <script>
+        var socket;
+        var uuid = null;
+        var joined = false;
+
+        function connect() {
+            socket = new WebSocket('ws://45.79.95.32:8111');
+
+            socket.onopen = function () {
+                $('#connecting').hide();
+                $('#join').show();
+            }
+
+            socket.onmessage = function (event) {
+                if (!joined) {
+                    // we haven't joined yet, so the state doesn't matter to us
+                    return;
+                }
+
+                var response = JSON.parse(event.data);
+                console.log(response);
+
+                for (var key in response['players']) {
+                    var player = response['players'][key];
+
+                    if (player.name == $('#name').val()) {
+                        uuid = player.uuid;
+                    }
+                }
+
+                for (var event of response.events) {
+                    if (event.error) {
+                        alert(event.error);
+                    }
+                }
+
+                if (!uuid) {
+                    // we haven't successfully joined, so state still doesn't matter
+                    return;
+                }
+
+                switch (response['stage']['stage']) {
+                    case 'waiting_for_ready': {
+                        $('body > div').hide();
+                        $('#ready').show();
+                        renderCards(response);
+                        break;
+                    }
+
+                    case 'waiting_for_bets': {
+                        $('body > div').hide();
+                        $('#bet').show();
+                        break;
+                    }
+
+                    case 'taking_cards': {
+                        $('body > div').hide();
+                        $('#hit-or-stay').show();
+                        renderCards(response);
+                        break;
+                    }
+                }
+            }
+        }
+
+        function join() {
+            joined = true;
+
+            socket.send(JSON.stringify({
+                'action': 'join',
+                'name': $('#name').val()
+            }));
+        }
+
+        function ready() {
+            socket.send(JSON.stringify({
+                'action': 'ready'
+            }));
+        }
+
+        function bet() {
+            socket.send(JSON.stringify({
+                'action': 'bet',
+                'amount': parseInt($('#amount').val())
+            }));
+        }
+
+        function stay() {
+            socket.send(JSON.stringify({
+                'action': 'stay'
+            }));
+        }
+
+        function hit() {
+            socket.send(JSON.stringify({
+                'action': 'hit'
+            }));
+        }
+
+        function renderCards(response) {
+            $('#cards').show();
+            $('#cards').empty();
+
+            var keys = Object.keys(response.players);
+            var index = keys.indexOf(uuid);
+
+            keys.splice(index, 1);
+
+            keys.sort((a, b) => {
+                var ap = response['players'][a];
+                var bp = response['players'][b];
+
+                if (ap.name < bp.name) {
+                    return -1;
+                }
+                else if (ap.name > bp.name) {
+                    return 1;
+                }
+                else {
+                    return 0;
+                }
+            });
+
+            keys = [null, uuid, ...keys];
+
+            for (key of keys) {
+                var cards;
+                var player;
+
+                if (key === null) {
+                    player = null;
+                    cards = response.dealerCards;
+                }
+                else {
+                    player = response['players'][key];
+                    cards = player.cards;
+                }
+
+                var list = $('<div>');
+
+                for (var card of cards) {
+                    var rank = card ? card.rank : 'backtop';
+                    var suit = card ? card.suit : 'backbottom';
+
+                    var cardDiv = $('<div class="card">');
+                    cardDiv.append($('<img>').attr('src', 'cards/card' + rank + '.png'));
+                    cardDiv.append('<br>');
+                    cardDiv.append($('<img>').attr('src', 'cards/card' + suit + '.png'));
+
+                    list.append(cardDiv);
+                }
+
+                if (player === null) {
+                    $('#cards').append('<h3>Dealer</h3>');
+                }
+                else {
+                    $('#cards').append('<h3>' + player.name + ' (' + player.tokens + ' tokens, ' + player.bet + ' token bet)</h3>');
+                }
+
+                $('#cards').append(list);
+            }
+        }
+
+        connect();
+    </script>
+    <style>
+        .card {
+            line-height: 0;
+            display: inline-block;
+            margin-right: 1rem;
+        }
+
+        .card img {
+            height: 32px;
+            width: 32px;
+        }
+    </style>
+</head>
+<body>
+    <div id="connecting">
+        <h3>Connecting...</h3>
+    </div>
+
+    <div id="join" style="display:none">
+        <h3>Join</h3>
+        <p>
+            Enter your name:
+            <input type="text" id="name">
+            <button onclick='join()'>Join</button>
+        </p>
+    </div>
+
+    <div id="ready" style="display:none">
+        <h3>Ready to start?</h3>
+        <p>
+            <button onclick='ready()'>Start!</button>
+        </p>
+    </div>
+
+    <div id="bet" style="display:none">
+        <h3>Place Bet</h3>
+        <p>
+            Enter your bet:
+            <input type="text" id="amount">
+            <button onclick='bet()'>Place</button>
+        </p>
+    </div>
+
+    <div id="hit-or-stay" style="display:none">
+        <h3>Taking Cards</h3>
+        <p>
+            <button onclick='stay()'>Stay</button>
+            <button onclick='hit()'>Hit</button>
+        </p>
+    </div>
+
+    <div id="cards" style="display:none">
+    </div>
+</body>
+</html>
