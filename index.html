@@ -47,6 +47,8 @@
                     return;
                 }
 
+                var waitingPlayers = response['stage']['players'];
+
                 switch (response['stage']['stage']) {
                     case 'waiting_for_ready': {
                         $('body > div').hide();
@@ -58,12 +60,28 @@
                     case 'waiting_for_bets': {
                         $('body > div').hide();
                         $('#bet').show();
+
+                        if (waitingPlayers.indexOf(uuid) !== -1) {
+                            $('#mybet').show();
+                        }
+                        else {
+                            $('#mybet').hide();
+                        }
+
                         break;
                     }
 
                     case 'taking_cards': {
                         $('body > div').hide();
                         $('#hit-or-stay').show();
+
+                        if (waitingPlayers.indexOf(uuid) !== -1) {
+                            $('#my-hit-or-stay').show();
+                        }
+                        else {
+                            $('#my-hit-or-stay').hide();
+                        }
+
                         renderCards(response);
                         break;
                     }
@@ -206,8 +224,8 @@
     </div>
 
     <div id="bet" style="display:none">
-        <h3>Place Bet</h3>
-        <p>
+        <h3>Taking Bets</h3>
+        <p id="mybet">
             Enter your bet:
             <input type="text" id="amount">
             <button onclick='bet()'>Place</button>
@@ -216,7 +234,7 @@
 
     <div id="hit-or-stay" style="display:none">
         <h3>Taking Cards</h3>
-        <p>
+        <p id="my-hit-or-stay">
             <button onclick='stay()'>Stay</button>
             <button onclick='hit()'>Hit</button>
         </p>
